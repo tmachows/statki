@@ -6,6 +6,7 @@
 Plik z postępami/planem działań.
 
 Przy każdym pushu powinna pojawić się tutaj aktualizacja:
+MJ -- 26-05-2015--szkielet
 -- KTO -- KIEDY -- "ZROBIONE"
 	Co zrobiłem
 
