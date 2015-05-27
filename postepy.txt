@@ -1,0 +1,16 @@
+-----------------------------------------------------------------------
+
+2015. Mateusz Gaweł, Mateusz Jarosz, Tymoteusz Machowski
+@All Rights Reserved
+
+Plik z postępami/planem działań.
+
+Przy każdym pushu powinna pojawić się tutaj aktualizacja:
+-- KTO -- KIEDY -- "ZROBIONE"
+	Co zrobiłem
+
+Przy rozpoczynaniu pisania czegoś:
+-- KTO -- KIEDY -- "BĘDZIE ROBIONE"
+	Co będę robił
+
+-----------------------------------------------------------------------
