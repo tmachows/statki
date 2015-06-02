@@ -18,3 +18,9 @@ Przy rozpoczynaniu pisania czegoś:
 
 -- MJ -- 26-05-2015 -- ZROBIONE
 	szkielet
+
+-----------------------------------------------------------------------
+
+-- MG -- 02-06-2015 -- ZROBIONE
+	koniec szkieletu, wersja prawie gotowa serwera i szkielet inicjujący klienta
+	
