@@ -22,9 +22,15 @@ typedef enum {
 	FIELD_STATE,
 	GAME_STATE, //WIN,LOSS,DISCONNECT
 	PLAYER_READY, // READY
-	HISTORY	
+	HISTORY,
+	SERVER_INFO
 } action_t;
 
+typedef enum{
+	CONNECTED,
+	ERROR,
+	DISCONNECTED
+}server_info_t;
 struct client_struct {
 	char name[CLIENT_NAME_LENGTH];
 	int socket;
@@ -43,7 +49,9 @@ typedef struct {
 	field_t field;	
 	field_state_t field_state;
 	game_state_t game_state;
+	server_info_t server_info;
 } request_t;
+
 typedef struct{
 	char msg[HISTORY_LENGHT];
 } history_request_t
