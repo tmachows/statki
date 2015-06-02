@@ -7,6 +7,7 @@
 
 #define CLIENT_NAME_LENGHT 50
 #define HISTORY_LENGHT 1024
+#define MAX_CLIENT 20
 
 typedef enum{
 	MENU,
