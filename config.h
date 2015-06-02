@@ -29,7 +29,8 @@ typedef enum {
 typedef enum{
 	CONNECTED,
 	ERROR,
-	DISCONNECTED
+	DISCONNECTED,
+	OPPONENT
 }server_info_t;
 struct client_struct {
 	char name[CLIENT_NAME_LENGTH];
@@ -43,7 +44,7 @@ typedef struct client_struct client_t;
 
 typedef struct {
 	char name[CLIENT_NAME_LENGTH];
-	int opponnent_socket;
+	int opponent_socket;  // GAME.SERVER_INFO.OPPONENT_SOCKET   to w  opponent_socket_socket przeciwnika
 	lobby_t lobby;
 	action_t action;
 	field_t field;	
