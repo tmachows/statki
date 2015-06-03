@@ -22,13 +22,22 @@ int get_client_number(client_t* client);
 void check_enter(int argc, char** argv);
 void init_server();
 void listen_function();
-void send_to_all(request_t request, client_t * client);
 void unregister_client(client_t * client);
+
+void check_and_send_history( const char* name);
+void send_opponent_to_player( client_t client);
+void send_to_opponent(request_t request);
+void send_to_opponent_win(request_t request);
+void save_player_history(request_t request);
+
+
 int port;
 char* path;
-
-client_t* head_client = NULL;// zrobic tablice [10] klientow4
+client_t* head_client = NULL;
 pthread_mutex_t client_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t history_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t waiting_player_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t send_to_opponent_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int unix_socket;
 int inet_socket;
@@ -40,6 +49,10 @@ struct sockaddr_in	client_inet_address;
 
 socklen_t unix_address_size = sizeof(struct sockaddr_un);
 socklen_t inet_address_size = sizeof(struct sockaddr_in);
+
+client_t waiting_players_queue[3];
+int waiting_players_amount = 0;
+
 
 int main(int argc, char **argv)
 {
@@ -78,31 +91,101 @@ void* server_thread_function(void* tmp_client) {
 
 		printf("\nReceived request no. %d from Client #%d\n", request.action, get_client_number(&client));
 	
-		switch(request.action){
-		case ADD_USER:
-			printf("Registering client ");
+		switch(request.lobby){
+		case MENU:
+			switch(request.action){
+			case ADD_USER:
+				printf("Registering client ");
 				strcpy(client.name, request.name);
-			printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
-			pthread_mutex_unlock(&client_list_mutex);
+				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+				pthread_mutex_unlock(&client_list_mutex);
 			break;
-		case UNREGISTER:
+
+			case DISCONNECT:
 				printf("Unregistering client: %s\n", client.name);
-			pthread_mutex_lock(&client_list_mutex);
-			unregister_client(&client);
-			pthread_mutex_unlock(&client_list_mutex);
-			if(pthread_cancel(client.thread) == -1)
-				error("server_thread_function() --> pthread_cancel()");
-
+				pthread_mutex_lock(&client_list_mutex);
+				unregister_client(&client);
+				pthread_mutex_unlock(&client_list_mutex);
+				if(pthread_cancel(client.thread) == -1)
+					error("server_thread_function() --> pthread_cancel()");
+				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
-		case MSG_TO_SERVER:
-			printf("Sending msg from: %s\n", request.name);
-
-			pthread_mutex_lock(&client_list_mutex);
-				send_to_all(request,&client);
-			pthread_mutex_unlock(&client_list_mutex);
+			
+			case CHECK_HISTORY:
+				printf("Checking history of: %s\n",client.name);
+				pthread_mutex_lock(&history_mutex);
+				check_and_send_history(client.name);
+				pthread_mutex_unlock(&history_mutex);
+				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
+			case START_GAME:
+				printf("Starting game for player: %s\n",client.name);
+				pthread_mutex_lock(&waiting_player_mutex);
+				send_opponent_to_player(client);
+				pthread_mutex_unlock(&waiting_player_mutex);
+				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+			break;
+			default:
+				printf("Request received but not recognized: %d\n", request.action);
+			}
+		case GAME:
+			switch(request.action){
+			case FIELD:
+				printf("Sending Field to opponent from player: %s\n",client.name);
+				pthread_mutex_lock(&send_to_opponent_mutex);
+				send_to_opponent(request);
+				pthread_mutex_unlock(&send_to_opponent_mutex);
+				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+			break;
+			case FIELD_STATE:
+				printf("Sending Field_state to opponent from player: %s\n",client.name);
+				pthread_mutex_lock(&send_to_opponent_mutex);
+				send_to_opponent(request);
+				pthread_mutex_unlock(&send_to_opponent_mutex);
+				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+			break;
+			case GAME_STATE:
+				if(request.game_state == DISCON){
+					printf("Player %s disconnect and defeat\n",client.name);
+					pthread_mutex_lock(&send_to_opponent_mutex);
+					send_to_opponent_win(request);
+					pthread_mutex_unlock(&send_to_opponent_mutex);
+					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+
+					printf("Saving history to player %s\n",client.name);
+					pthread_mutex_lock(&history_mutex);
+					save_player_history(request);
+					pthread_mutex_unlock(&history_mutex);
+					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+
+					printf("Unregistering client: %s\n", client.name);
+					pthread_mutex_lock(&client_list_mutex);
+					unregister_client(&client);
+					pthread_mutex_unlock(&client_list_mutex);
+
+					if(pthread_cancel(client.thread) == -1)
+						error("server_thread_function() --> pthread_cancel()");
+					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+				}else{
+					printf("Player %s end game\n",client.name);
+					pthread_mutex_lock(&history_mutex);
+					save_player_history(request);
+					pthread_mutex_unlock(&history_mutex);
+					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+				}
+			break;
+			case PLAYER_READY:
+			
+			break;
+			default:
+				printf("Request received but not recognized: %d\n", request.action);
+			}
+			break;
+		
+		
 		default:
-			printf("Request received but not recognized: %d\n", request.action);
+			printf("Request received but not recognized: %d\n", request.lobby);
+		
 		}
 	}
 
@@ -218,24 +301,6 @@ printf("Waiting for clients\n");
 }
 
 
-void send_to_all(request_t request, client_t *client){
-	
-
-	request_t answer;
-	client_t * tmp = head_client;
-	strcpy(answer.msg,request.msg);
-	strcpy(answer.name,request.name);
-	answer.action = MSG_FROM_SERVER;
-	while(tmp!= NULL){
-		if(tmp->socket!=client->socket){
-			if(send(tmp->socket, (void *) &answer, sizeof(answer),0) == -1)
-			error("Send_to_all()");
-		}	
-		tmp=tmp->next;
-	}
-	
-
-}
 
 void unregister_client(client_t* client){
 		client_t *tmp  = head_client;
@@ -254,6 +319,24 @@ void unregister_client(client_t* client){
 				}
 			
 }
+
+
+
+
+
+
+void check_and_send_history( const char* name){}
+void send_opponent_to_player( client_t client){}
+void send_to_opponent(request_t request){}
+void send_to_opponent_win(request_t request){}
+void save_player_history(request_t request){}
+
+
+
+
+
+
+
 void error(const char *fun_name){
 	char info[20];
 	int tmp_errno = errno;
