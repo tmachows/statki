@@ -27,5 +27,8 @@ Przy rozpoczynaniu pisania czegoś:
 
 -- MG -- 03-06-2015 -- BĘÐZIE ROBIONE
 	biorę się za serwer, dokończę go w całości
+	jutro dokończę funkcje serwera pisać a potrzebuję pomysłu jak szukać przeciwników
+	wiem że tylko jeden będzie czekał ale jak wysłać do tego czekającego socket przeciwnika
+	i jeszcze jak zbierać inforacje o tym że obaj playerzy są ready
 	
 	
