@@ -23,4 +23,9 @@ Przy rozpoczynaniu pisania czegoś:
 
 -- MG -- 02-06-2015 -- ZROBIONE
 	koniec szkieletu, wersja prawie gotowa serwera i szkielet inicjujący klienta
+	-----------------------------------------------------------------------
+
+-- MG -- 03-06-2015 -- BĘÐZIE ROBIONE
+	biorę się za serwer, dokończę go w całości
+	
 	
