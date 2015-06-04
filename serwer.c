@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
@@ -24,20 +25,24 @@ void init_server();
 void listen_function();
 void unregister_client(client_t * client);
 
-void check_and_send_history( const char* name);
-void send_opponent_to_player( client_t client);
+void check_and_send_history(client_t client);
+void send_opponent_to_player(game_t *game, client_t client);
 void send_to_opponent(request_t request);
 void send_to_opponent_win(request_t request);
 void save_player_history(request_t request);
+void send_start_game(game_t game);
 
 
 int port;
 char* path;
 client_t* head_client = NULL;
+game_t* head_game = NULL;
 pthread_mutex_t client_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t history_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waiting_player_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t send_to_opponent_mutex = PTHREAD_MUTEX_INITIALIZER;
+	
+pthread_cond_t	waiting_cond	= PTHREAD_COND_INITIALIZER;
 
 int unix_socket;
 int inet_socket;
@@ -49,9 +54,6 @@ struct sockaddr_in	client_inet_address;
 
 socklen_t unix_address_size = sizeof(struct sockaddr_un);
 socklen_t inet_address_size = sizeof(struct sockaddr_in);
-
-client_t waiting_players_queue[3];
-int waiting_players_amount = 0;
 
 
 int main(int argc, char **argv)
@@ -83,6 +85,8 @@ void* server_thread_function(void* tmp_client) {
 
 
 	request_t request;
+	game_t *game;
+	
 
 	while(1) {
 
@@ -114,15 +118,37 @@ void* server_thread_function(void* tmp_client) {
 			case CHECK_HISTORY:
 				printf("Checking history of: %s\n",client.name);
 				pthread_mutex_lock(&history_mutex);
-				check_and_send_history(client.name);
+				check_and_send_history(client);
 				pthread_mutex_unlock(&history_mutex);
 				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
 			case START_GAME:
 				printf("Starting game for player: %s\n",client.name);
 				pthread_mutex_lock(&waiting_player_mutex);
-				send_opponent_to_player(client);
-				pthread_mutex_unlock(&waiting_player_mutex);
+				game_t* tmp  = head_game;
+				printf("Looking for game\n");
+				while(tmp != NULL){
+					if(tmp->player_2 == NULL){
+						tmp->player_2  = &client;
+						game = tmp;
+						pthread_cond_signal(&waiting_cond);
+						pthread_mutex_unlock(&waiting_player_mutex);
+						break;
+					}
+					tmp = tmp->next;
+				}
+				if(tmp = NULL){ // There's no waiting players;
+					game = (game_t*) malloc(sizeof(game_t));
+					game->player_1 = &client;
+					while(game->player_2 == NULL) pthread_cond_wait(&waiting_cond, &waiting_player_mutex);
+					pthread_mutex_unlock(&waiting_player_mutex);
+					
+				}
+				printf("Game has beed found\n");
+				pthread_mutex_lock(&send_to_opponent_mutex);
+				send_opponent_to_player(game,client);
+				pthread_mutex_unlock(&send_to_opponent_mutex);
+				
 				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
 			default:
@@ -175,7 +201,16 @@ void* server_thread_function(void* tmp_client) {
 				}
 			break;
 			case PLAYER_READY:
-			
+				if(game->player_1.socket = client.socket){
+					game.ready_player_1 = TRUE;
+				}else{
+					game.ready_player_2 = TRUE;
+				}
+				if(game.ready_player_1 == TRUE && game.ready_player_2 == TRUE){
+					pthread_mutex_lock(&send_to_opponent_mutex);
+					send_start_game(game);
+					pthread_mutex_unlock(&send_to_opponent_mutex);
+				}
 			break;
 			default:
 				printf("Request received but not recognized: %d\n", request.action);
@@ -268,6 +303,9 @@ void init_server(){
 		error("listen(unix)");
 	if(listen(inet_socket, 10) == -1)
 		error("listen(inet)");
+
+	if(mkdir("history",0777) != 0 && errno != EEXIST)
+		error("mkdir(history)");
 }
 
 void listen_function(){
@@ -325,11 +363,68 @@ void unregister_client(client_t* client){
 
 
 
-void check_and_send_history( const char* name){}
-void send_opponent_to_player( client_t client){}
-void send_to_opponent(request_t request){}
-void send_to_opponent_win(request_t request){}
-void save_player_history(request_t request){}
+void check_and_send_history(client_t client){}
+void send_opponent_to_player(game_t *game, client_t client){
+	
+	request_t response;
+	response.lobby=GAME;
+	response.action=SERVER_INFO;
+	response.server_info = OPPONENT;
+	if(game->player_1.socket == client.socket){
+		response.opponent_socket = game->player_2.socket;
+	}else{
+		response.opponent_socket = game->player_1.socket;
+	}
+	if(send(client.socket,(void*) response, sizeof(response),0)==-1)
+		error("send_opponent_to_player --> send()");
+}	
+void send_to_opponent(request_t request){
+	if(send(request.opponent_socket,(void*) request, sizeof(request),0) == -1)
+		error("send_to_opponent --> send()");
+}
+void send_to_opponent_win(request_t request){
+	request_t response;
+	response.lobby = GAME;
+	response.action = GAME_STATE;
+	response.game_state = WIN;
+	if(send(request.opponent_socket,(void*) response, sizeof(response),0) == -1)
+		error("send_to_opponent_win --> send()");
+}
+void save_player_history(request_t request){
+	
+
+	FILE * pFILE;
+	time_t rawtime;
+	char* result[14];
+	struct tm* timeinfo;
+	char* file_name[100];
+	strcpy(file_name,history);
+	strcat(file_name,"/");
+	strcat(file_name,request.name);
+	pFILE= fopen(file_name,"a");
+	if(pFILE==NULL) error("save_player_history --> pFile");
+	
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	fprintf(pFILE, asctime(timeinfo));
+	fprintf(pFILE,":");
+	switch(request.game_status){
+	case WIN:
+		strcpy(result,"WIN");
+		break;
+	case LOSS:
+		strcpy(result,"LOSS");
+		break;
+	case DISCON:
+		strcpy(result,"DISCONNECT");
+		break;
+	default:
+		
+	}
+	fprintf(pFILE,result);
+	fprintf(pFILE,"\n");
+
+}
 
 
 
