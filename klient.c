@@ -17,6 +17,9 @@ void* thread_function(void* arg);
 void error(const char *fun_name);
 void exit_handler(int signo);
 void atexit_function();
+void init_client();
+void game_function();
+void get_history();
 
 int local_flag = 1;
 int server_port;
@@ -29,7 +32,7 @@ int thread_is_alive = 1;
 char msg[MAX_MSG_LENGHT];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 char client_name[CLIENT_NAME_LENGTH];
-void init_client();
+
 
 int main(int argc, char *argv[])
 {
@@ -61,6 +64,7 @@ int main(int argc, char *argv[])
 		printf("\t\t\t\033[32m[ OK ]\033[0m\n");
 	pthread_mutex_unlock(&mutex);
 	printf("\nClient registered\n");
+
 	request_t response;
 	while(1) {
 		//OBSLUGA GRY //EDIT
@@ -73,7 +77,7 @@ int main(int argc, char *argv[])
 }
 
 void parse_arguments(int argc, char *argv[]) {
-	if(argc < 2) {
+	if(argc < 4 || argc > 5) {
 		printf("\n1Invalid arguments! Usage:\n\t%s\t [name] [unix|inet]  [[path] | [ip] [port]]\n\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -104,16 +108,55 @@ void parse_arguments(int argc, char *argv[]) {
 
 void* thread_function(void* arg) {
 	request_t response;
-	response.action = MSG_TO_SERVER;
 	strcpy(response.name,client_name);
+	response.lobby = MENU;
 	char bufor[MAX_MSG_LENGHT];
 
+	printf("\n\n#################################################################\n");
+	printf("----------------- Witaj w grze sieciowej w statki! --------------\n");
+	printf("#################################################################\n\n");
+
 	while(thread_is_alive) {
+		printf("\t\t1. Nowa Gra\n");
+		printf("\t\t2. Historia\n");
+		printf("\t\t3. Wyjscie\n");
+
+		int pick;
+		do {
+			scanf("%d", &pick);
+			if(pick == 1 || pick == 2 || pick == 3)
+				break;
+			printf("Brak takiej pozycji w menu, sprobuj ponownie.\n");
+		} while(1);
+
+		if(pick == 1)
+			response.action = START_GAME;
+		else if(pick == 2)
+			response.action = CHECK_HISTORY;
+		else if(pick == 3)
+			response.action = DISCONNECT;
+
+		printf("Wysylanie zadania...");
+		pthread_mutex_lock(&mutex);
+		if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+			error("send()");
+		printf("\t\t\t\033[32m[ OK ]\033[0m\n");
+		pthread_mutex_unlock(&mutex);
+
+		if(pick == 1) {
+			printf("Oczekiwanie na gre...");
+			game_function();
+		}
+		else if(pick == 2) 
+			get_history();
+		
+
+		/*
 		printf("\t Ja:");
 		scanf("%s",bufor);
 		if(strcmp(bufor,"quit") == 0){
-		response.action = UNREGISTER;
-		thread_is_alive = 0;
+			response.action = UNREGISTER;
+			thread_is_alive = 0;
 		}else{
 			strcpy(response.msg,bufor);
 		}
@@ -122,7 +165,8 @@ void* thread_function(void* arg) {
 				error("thread_function() --> send()");
 		pthread_mutex_unlock(&mutex);
 	}
-	kill(getpid(),SIGTSTP);
+	*/
+	kill(getppid(),SIGTSTP);
 	return NULL;
 }
 
