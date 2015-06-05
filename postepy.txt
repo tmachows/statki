@@ -30,5 +30,9 @@ Przy rozpoczynaniu pisania czegoś:
 	jutro dokończę funkcje serwera pisać a potrzebuję pomysłu jak szukać przeciwników
 	wiem że tylko jeden będzie czekał ale jak wysłać do tego czekającego socket przeciwnika
 	i jeszcze jak zbierać inforacje o tym że obaj playerzy są ready
+
+
+-- TM -- 05-06-2015 -- BĘDZIE ROBIONE
+	Drobe poprawki, głównie do klienta
 	
 	

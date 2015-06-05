@@ -78,6 +78,7 @@ void parse_arguments(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	strcpy(client_name, argv[1]);
 	if(strcmp(argv[2], "unix") == 0) {
 		if(argc != 4) {
 			printf("\n2Invalid arguments! Usage:\n\t%s\t[name] [unix|inet]  [[path] | [ip] [port]]\n\n", argv[0]);
@@ -85,7 +86,6 @@ void parse_arguments(int argc, char *argv[]) {
 		}
 		local_flag = 1;
 		strcpy(server_path, argv[3]);
-		strcpy(client_name,argv[1]);
 	}
 	else if(strcmp(argv[2], "inet") == 0) {
 		if(argc != 5) {
@@ -95,7 +95,6 @@ void parse_arguments(int argc, char *argv[]) {
 		local_flag = 0;
 		ip= argv[3];
 		server_port = atoi(argv[4]);		
-		strcpy(client_name,argv[1]);
 	}
 	else {
 		printf("\nInvalid arguments! Second argument should be 'unix' or 'inet'\n\n");
