@@ -35,6 +35,7 @@ void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght);
 
 fields_t field;
 int local_flag = 1;
+int enymy_ready=0;
 int server_port;
 int client_port;
 char server_path[CLIENT_NAME_LENGTH + 2];
@@ -179,12 +180,30 @@ void* thread_function(void* arg) {
 		pthread_mutex_unlock(&mutex);
 	}
 	*/
-	kill(getppid(),SIGTSTP);
+	kill(getpid(),SIGTSTP);
 	return NULL;
+}
 }
 
 void game_function(){
 	init_fields();
+
+	
+	
+	while(1){
+		pthread_mutex_lock(&mutex);
+		if(enymy_ready==0)
+			printf("ocekiwanie na gotowosc przeciwnika\n");
+		else{
+			printf("przeciwnik gotowy gr rozpoczyna sie\n");
+			pthread_mutex_unlock(&mutex);
+			break
+		}
+		pthread_mutex_unlock(&mutex);
+		sleep(1);
+	}
+	
+
 
 	return ;
 }
@@ -215,6 +234,16 @@ void init_fields(){
 		}
 		
 	}
+
+	request_t response;
+	strcpy(response.name,client_name);
+	response.lobby = GAME;
+	response.action = PLAYER_READY;	
+	pthread_mutex_lock(&mutex);
+	if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+			error("send() redy");
+	pthread_mutex_unlock(&mutex);
+
 
 }
 
@@ -339,11 +368,11 @@ int check_field(int x,int y){
 			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y+1]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x-1][y+1]==0&&field.my_fields[x+1][y-1]==0&&field.my_fields[x][y-1]==0&&
 			field.my_fields[x-1][y-1]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x-1][y]==0)
 				return 1;
-			printf("pole jest zajente");	
-			return 0;
-		}
+		
+		}	
 	}
-	
+	printf("pole jest zajete");	
+	return 0;
 };
 int pars_field(char *bufor,int &x,int &y){
 		sscanf(bufor,"%d",&x);
