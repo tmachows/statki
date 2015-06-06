@@ -38,6 +38,8 @@ Przy rozpoczynaniu pisania czegoś:
 -- TM -- 05-06-2015 -- ZROBIONE
 	Drobne poprawki, bardziej szczegółowy szkielet klienta
 
-
+-- MJ -- 06-06-2015 -- BĘDZIE ROBIONE
+	game function
+	
 	
 	
