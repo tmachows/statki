@@ -12,6 +12,14 @@
 
 #include "config.h"
 
+struct field_struct{
+
+	int my_fields[10][10];
+	int enymy_fields [10][10];
+};
+typedef struct field_struct fields_t;
+void print_bord();
+void init_fields();
 void parse_arguments(int argc, char *argv[]);
 void* thread_function(void* arg);
 void error(const char *fun_name);
@@ -20,7 +28,12 @@ void atexit_function();
 void init_client();
 void game_function();
 void get_history();
+int pars_field(char *bufor,int &x,int &y);
+int check_field(int x,int y);
+int check_fields(int begin_x,int begin_y,int x,int y,int lenght);
+void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght);
 
+fields_t field;
 int local_flag = 1;
 int server_port;
 int client_port;
@@ -169,6 +182,203 @@ void* thread_function(void* arg) {
 	kill(getppid(),SIGTSTP);
 	return NULL;
 }
+
+void game_function(){
+	init_fields();
+
+	return ;
+}
+
+void init_fields(){
+	int x,y,begin_x,begin_y;
+	for(int i=0;i<100;i++){
+		field.my_fields[i/10][i%10]=0;
+		field.enymy_fields[i/10][i%10]=0;
+	}
+	
+	for(int i=1;i<5;i++){
+		for(int j=0;j<i;j++){	
+			printf("prosze podać poczatek statku nr:%d  o dl %d\n",j+1,5-i);		
+			do{		
+				char *bufor;
+				scanf("%s",bufor);	
+			}while(pars_field(bufor,&x,&y)==0&&check_field(x, y)==0);
+			begin_x=x;
+			begin_y=y;
+			printf("prosze podać koniec statku nr:%d  o dl %d\n",j+1,5-i);		
+			do{		
+				char *bufor;
+				scanf("%s",bufor);	
+			}while(pars_field(bufor,&x,&y)==0&&check_field(x, y)==0&&check_fields(begin_x,begin_y,x,y,i)==0);
+			place_vaessel(begin_x,begin_y,x,y,i);
+			print_bord();
+		}
+		
+	}
+
+}
+
+void print_bord(){
+	char c='A',b;
+	printf("\E[H\E[2J"); \\clear
+	printf("\t\t moje statki \t\t\t\t\tstatki preciwnika\n");
+	printf("\t  0 1 2 3 4 5 6 7 8 9 \t\t  0 1 2 3 4 5 6 7 8 9\n");
+	for(int i=0;i<10;i++){
+		printf("\t%c "c+i);
+			for(int j=0;j<10;j++){
+				if(field.my_fields[i][j]==2)
+					b='X';	
+				if(field.my_fields[i][j]==1)
+					b='O';
+				if(field.my_fields[i][j]==0)
+					b=' ';
+				printf("%c ",b);
+			}
+		printf("\t\t%c "c+i);
+			for(int j=0;j<10;j++){
+				if(field.enymy_fields[i][j]==2)
+					b='X';	
+				if(field.enymy_fields[i][j]==1)
+					b='O';
+				if(field.enymy_fields[i][j]==0)
+					b=' ';
+				printf("%c ",b);
+			}
+		printf("\n");	
+	}
+	
+}
+
+void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght){
+	int z=0;
+	if(begin_x!=x)
+		z=x-begin_x;
+		if(z>0)
+			z=1;
+		else 
+			z=-1;
+		for(int i=0;i<lenght;i++){
+			field.my_fields[begin_x+i*z][begin_y]=1;
+		}
+	else {
+		z=y-begin_y;
+		if(z>0)
+			z=1;
+		else 
+			z=-1;
+		for(int i=0;i<lenght;i++){
+			field.my_fields[begin_x][begin_y+i*z]=1;
+		}
+
+	}
+	
+	
+}
+
+
+
+int check_fields(int begin_x,int begin_y,int x,int y,int lenght){
+	int i=0;
+	if(begin_x!=x&&begin_y==y)
+		i=abs(begin_x-x);
+	else if(begin_x==x&&begin_y!=y){
+		i=abs(begin_y-y);
+	}
+	else{
+		printf("podaj inne pole  tak by statek nie zginal sie\n");
+		return 0;
+	}
+	if(i==0){
+		printf("podaj pole inne niż początek\n");
+		return 0;
+	}else if(i!=lenght){
+		printf("podaj inne pole  tak by statek miał dł %d\n",lenght);
+		return 0;
+	}else{
+		return 1;
+	}
+	
+}
+
+int check_field(int x,int y){
+	if(x==0){
+		if(y==0){
+			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x+1][y+1]==0)
+				return 1;
+		}
+		else if(y==9){
+			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x][y-1]==0&&field.my_fields[x+1][y-1]==0)
+				return 1;
+		}else{
+			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y-1]==0&&field.my_fields[x+1][y+1]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x][y-1]==0)
+				return 1;
+		}
+	}
+	else if(x==9){
+		if(y==0){
+			if(field.my_fields[x][y]==0&&field.my_fields[x-1][y]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x-1][y+1]==0)
+				return 1;
+		}
+		else if(y==9){
+			if(field.my_fields[x][y]==0&&field.my_fields[x-1][y]==0&&field.my_fields[x][y-1]==0&&field.my_fields[x-1][y-1]==0)
+				return 1;
+		}else{
+			if(field.my_fields[x][y]==0&&field.my_fields[x-1][y-1]==0&&field.my_fields[x-1][y+1]==0&&field.my_fields[x-1][y]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x][y-1]==0)
+				return 1;
+		}
+	}else{
+		if(y==0){
+			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y+1]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x-1][y+1]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x-1][y]==0)
+				return 1;
+		}
+		else if(y==9){
+			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y-1]==0&&field.my_fields[x][y-1]==0&&field.my_fields[x-1][y-1]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x-1][y]==0)
+				return 1;	
+		}
+		else{
+			if(field.my_fields[x][y]==0&&field.my_fields[x+1][y+1]==0&&field.my_fields[x][y+1]==0&&field.my_fields[x-1][y+1]==0&&field.my_fields[x+1][y-1]==0&&field.my_fields[x][y-1]==0&&
+			field.my_fields[x-1][y-1]==0&&field.my_fields[x+1][y]==0&&field.my_fields[x-1][y]==0)
+				return 1;
+			printf("pole jest zajente");	
+			return 0;
+		}
+	}
+	
+};
+int pars_field(char *bufor,int &x,int &y){
+		sscanf(bufor,"%d",&x);
+		if(x<10&&x>=0){
+			
+		}
+		else if(strstr(bufor,"A")!=NULL){
+			y=0;
+		}else if(strstr(bufor,"B")!=NULL){
+			y=1;
+		}else if(strstr(bufor,"C")!=NULL){
+			y=2;
+		}else if(strstr(bufor,"D")!=NULL){
+			y=3;
+		}else if(strstr(bufor,"E")!=NULL){
+			y=4;
+		}else if(strstr(bufor,"F")!=NULL){
+			y=5;
+		}else if(strstr(bufor,"G")!=NULL){
+			y=6;
+		}else if(strstr(bufor,"H")!=NULL){
+			y=7;
+		}else if(strstr(bufor,"I")!=NULL){
+			y=8;
+		}else if(strstr(bufor,"J")!=NULL){
+			y=9;
+		}else{
+			printf("blendne pole podaj od A0 do J9)
+			return 0;
+		}
+	retutn 1;
+	
+	
+}
+
 
 
 void init_client(){
