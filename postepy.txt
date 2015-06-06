@@ -40,6 +40,10 @@ Przy rozpoczynaniu pisania czegoś:
 
 -- MJ -- 06-06-2015 -- BĘDZIE ROBIONE
 	game function
+-- MJ -- 06-06-2015 -- ZROBIONE
+	inicjalizaja i rostawienie validacja i printowanie statków
+	
+		
 	
 	
 	
