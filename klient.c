@@ -17,6 +17,9 @@ struct field_struct{
 	int my_fields[10][10];
 	int enymy_fields [10][10];
 };
+
+
+
 typedef struct field_struct fields_t;
 void print_bord();
 void init_fields();
@@ -32,7 +35,12 @@ int pars_field(char *bufor,int &x,int &y);
 int check_field(int x,int y);
 int check_fields(int begin_x,int begin_y,int x,int y,int lenght);
 void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght);
+void aim(imt x,int y);
+int status();
 
+int game_status=1;
+int my_turn=0;
+int opponent_socket;
 fields_t field;
 int local_flag = 1;
 int enymy_ready=0;
@@ -45,6 +53,8 @@ pthread_t thread;
 int thread_is_alive = 1;
 char msg[MAX_MSG_LENGHT];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t	waiting_cond	= PTHREAD_COND_INITIALIZER;
 char client_name[CLIENT_NAME_LENGTH];
 
 
@@ -73,7 +83,7 @@ int main(int argc, char *argv[])
 	printf("Sending registration request");
 	pthread_mutex_lock(&mutex);
 
-		if(send(socket_fd, (void*) &request, sizeof(request), 0) == -1)
+	if(send(socket_fd, (void*) &request, sizeof(request), 0) == -1)
 			error("send()");
 		printf("\t\t\t\033[32m[ OK ]\033[0m\n");
 	pthread_mutex_unlock(&mutex);
@@ -84,11 +94,118 @@ int main(int argc, char *argv[])
 		//OBSLUGA GRY //EDIT
 		if(recv(socket_fd, (void*) &response, sizeof(response), 0) == -1)
 			error("recv()");
-		if(response.action == MSG_FROM_SERVER)
-		printf("\n%s: %s\n",response.name,response.msg);	
+		
+		switch(response.lobby){
+		case MENU:
+			switch(response.action){
+			//TODO
+			break;
+			default:
+				printf("Request received but not recognized: %d\n", response.action);
+			}
+		case GAME:
+			switch(response.action){
+			case FIELD:
+				printf("enymy aim Field %c %d: \n",'A'+response.field.y,response.field.x);
+				pthread_mutex_lock(&game_mutex);
+					aim(response.field.y,response.field.x);
+				pthread_mutex_unlock(&game_mutex);
+
+			break;
+			case FIELD_STATE:
+				if(response.field_state==MISS)
+					pthread_mutex_lock(&game_mutex);
+					my_turn=0;
+					field.enymy_fields[response.field.x][response.field.y]=3;
+					pthread_mutex_unlock(&game_mutex);
+					print_bord();
+					printf("you: miss\n");
+				else{
+					pthread_mutex_lock(&game_mutex);
+					my_turn=1;
+					field.enymy_fields[response.field.x][response.field.y]=2;
+					pthread_cond_signal(&waiting_cond);
+					pthread_mutex_unlock(&game_mutex);
+					print_bord();
+					printf("you: hit\n");	
+				}
+			break;
+			case GAME_STATE:
+				if(request.game_state == WIN){
+					printf("YOU WIN !!!!!!!!!!!!!!!!\n");
+					game_state=0;
+				}
+			break;
+		
+			case SERVER_INFO:
+				if(request.server_info==OPPONENT){
+					opponent_socket=response.opponent_socket;
+					pthread_mutex_lock(&game_mutex);
+					pthread_cond_signal(&waiting_cond);
+					pthread_mutex_unlock(&game_mutex);
+				}
+			break;
+			case PLAYER_READY:
+				if(request.server_info==OPPONENT){
+					
+					pthread_mutex_lock(&game_mutex);
+					enymy_ready=1;
+					pthread_cond_signal(&waiting_cond);
+					pthread_mutex_unlock(&game_mutex);
+				}
+			break;
+			default:
+				printf("response received but not recognized: %d\n", response.action);
+			}
+			break;
+		
+		
+		default:
+			printf("response received but not recognized: %d\n", response.lobby);
+		
+		}
+	}
+		
+		
+		
+			
+
 	}
 	exit(EXIT_SUCCESS);
 }
+
+
+void aim(imt x,int y){
+	request_t response;
+	strcpy(response.name,client_name);
+	response.lobby = GAME;
+	response.action = FIELD_STATE;
+	response.opponent_socket=opponent_socket;	
+	response.field.x=x;
+	response.field.y=y;
+
+
+	if(field.my_fields[x][y]==1){
+		field.my_fields[x][y]=2;
+		print_bord();
+		printf("you get hit");
+		my_turn=0;
+		response.field_state=HIT;
+		
+	}else{
+		response.field_state=MISS;
+		field.my_fields[x][y]=3;
+		print_bord();
+		my_turn=1;
+		pthread_cond_signal(&waiting_cond);
+	}
+	
+	pthread_mutex_lock(&mutex);
+	if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+			error("send() redy");
+	pthread_mutex_unlock(&mutex);
+}
+
 
 void parse_arguments(int argc, char *argv[]) {
 	if(argc < 4 || argc > 5) {
@@ -180,33 +297,78 @@ void* thread_function(void* arg) {
 		pthread_mutex_unlock(&mutex);
 	}
 	*/
+	}
 	kill(getpid(),SIGTSTP);
 	return NULL;
-}
+
 }
 
 void game_function(){
+	pthread_mutex_lock(&game_mutex);
+	pthread_cond_wait(&waiting_cond, &game_mutex);
+	pthread_mutex_unlock(&game_mutex);
 	init_fields();
 
 	
-	
-	while(1){
-		pthread_mutex_lock(&mutex);
-		if(enymy_ready==0)
-			printf("ocekiwanie na gotowosc przeciwnika\n");
-		else{
-			printf("przeciwnik gotowy gr rozpoczyna sie\n");
-			pthread_mutex_unlock(&mutex);
-			break
-		}
-		pthread_mutex_unlock(&mutex);
-		sleep(1);
+	pthread_mutex_lock(&game_mutex);
+	while(enymy_ready==0){
+		printf("ocekiwanie na gotowosc przeciwnika\n");
+		pthread_cond_wait(&waiting_cond, &game_mutex);
+		pthread_mutex_unlock(&game_mutex);
+
 	}
-	
+	printf("przeciwnik gotowy gry rozpoczyna sie\n");
+	int x,y;
+	while(game_status==1){
+			printf("podaj pole do zaatakowania \n");
+			do{		
+				char *bufor;
+				scanf("%s",bufor);	
+			}while(pars_field(bufor,&x,&y)==0);
+			request_t response;
+			strcpy(response.name,client_name);
+			response.lobby = GAME;
+			response.action = FIELD;
+			response.field.x=x;
+			response.field.y=y;	
+			response.opponent_socket=opponent_socket;
+			pthread_mutex_lock(&mutex);
+			if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+					error("send() game");
+			pthread_mutex_unlock(&mutex);
+			
+		pthread_mutex_lock(&game_mutex);
+		while(!my_turn)pthread_cond_wait(&waiting_cond, &game_mutex);
+		pthread_mutex_unlock(&game_mutex);
+		game_status	=status();
+	}
 
 
 	return ;
 }
+
+
+int status(){
+	request_t response;
+	strcpy(response.name,client_name);
+	response.lobby = GAME;
+	response.action = GAME_STATE;
+
+	response.opponent_socket=opponent_socket;
+
+	for(int i=0;i<100;i++){
+		if(field.my_fields[i/10][i%10]==1){
+			return 1;
+		}
+	}
+	response.game_state=LOSS;
+	pthread_mutex_lock(&mutex);
+	if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+			error("send() game");
+	pthread_mutex_unlock(&mutex);
+	return 0;
+}
+
 
 void init_fields(){
 	int x,y,begin_x,begin_y;
@@ -238,7 +400,8 @@ void init_fields(){
 	request_t response;
 	strcpy(response.name,client_name);
 	response.lobby = GAME;
-	response.action = PLAYER_READY;	
+	response.action = PLAYER_READY;
+	response.opponent_socket=opponent_socket;	
 	pthread_mutex_lock(&mutex);
 	if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
 			error("send() redy");
@@ -255,6 +418,8 @@ void print_bord(){
 	for(int i=0;i<10;i++){
 		printf("\t%c "c+i);
 			for(int j=0;j<10;j++){
+				if(field.my_fields[i][j]==3)
+					b='@';	
 				if(field.my_fields[i][j]==2)
 					b='X';	
 				if(field.my_fields[i][j]==1)
@@ -265,6 +430,8 @@ void print_bord(){
 			}
 		printf("\t\t%c "c+i);
 			for(int j=0;j<10;j++){
+				if(field.enymy_fields[i][j]==3)
+					b='@';	
 				if(field.enymy_fields[i][j]==2)
 					b='X';	
 				if(field.enymy_fields[i][j]==1)
