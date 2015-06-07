@@ -44,7 +44,7 @@ Przy rozpoczynaniu pisania czegoś:
 	inicjalizaja i rostawienie validacja i printowanie statków
 	
 -- MJ -- 06-06-2015 -- w miare ZROBIONE
-	game function nie testowane (balem sie) 
+	game function nie testowane (balem sie) kompilacja w std=c99 
 	
 				
 	
