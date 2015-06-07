@@ -43,7 +43,10 @@ Przy rozpoczynaniu pisania czegoś:
 -- MJ -- 06-06-2015 -- ZROBIONE
 	inicjalizaja i rostawienie validacja i printowanie statków
 	
-		
+-- MJ -- 06-06-2015 -- w miare ZROBIONE
+	game function nie testowane (balem sie) 
+	
+				
 	
 	
 	
