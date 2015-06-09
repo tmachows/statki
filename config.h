@@ -8,15 +8,13 @@
 #define CLIENT_NAME_LENGHT 50
 #define HISTORY_LENGHT 1024
 #define MAX_CLIENTS 20
-
+#define history "history"
+#define END_HISTORY "END"
 typedef enum{
 	MENU,
 	GAME
 }lobby_t;
 
-typedef struct{
-	char msg[HISTORY_LENGHT];
-} history_request_t;
 
 typedef struct{
 	int x;
@@ -76,6 +74,7 @@ typedef struct {
 	field_state_t field_state;
 	game_state_t game_state;
 	server_info_t server_info;
+	char msg[HISTORY_LENGHT];
 }request_t;
 struct game_struct{
 	client_t* player_1;
