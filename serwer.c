@@ -141,7 +141,7 @@ void* server_thread_function(void* tmp_client) {
 					}
 					tmp = tmp->next;
 				}
-				if(tmp = NULL){ // There's no waiting players;
+				if(tmp == NULL){ // There's no waiting players;
 					game = (game_t*) malloc(sizeof(game_t));
 					game->player_1 = &client;
 					while(game->player_2 == NULL) pthread_cond_wait(&waiting_cond, &waiting_player_mutex);
@@ -207,7 +207,7 @@ void* server_thread_function(void* tmp_client) {
 			break;
 			case PLAYER_READY:
 				
-				if(game->player_1->socket = client.socket){
+				if(game->player_1->socket == client.socket){
 					game->ready_player_1 = TRUE;
 				}else{
 					game->ready_player_2 = TRUE;
