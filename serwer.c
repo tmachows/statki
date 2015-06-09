@@ -30,7 +30,7 @@ void send_opponent_to_player(game_t *game, client_t client);
 void send_to_opponent(request_t request);
 void send_to_opponent_win(request_t request);
 void save_player_history(request_t request);
-void send_start_game(game_t *game);
+void send_start_game(game_t *game,client_t client);
 
 
 int port;
@@ -214,7 +214,7 @@ void* server_thread_function(void* tmp_client) {
 				}
 				if(game->ready_player_1 == TRUE && game->ready_player_2 == TRUE){
 					pthread_mutex_lock(&send_to_opponent_mutex);
-					send_start_game(game);
+					send_start_game(game,client);
 					pthread_mutex_unlock(&send_to_opponent_mutex);
 				}
 			break;
@@ -471,7 +471,21 @@ void save_player_history(request_t request){
 	fclose(pFILE);
 
 }
-void send_start_game(game_t *game){}
+void send_start_game(game_t *game,client_t client){
+	
+	request_t response;
+	response.lobby=GAME;
+	response.action=START_GAME;
+	if(client.socket == game->player_1->socket){
+		response.field_state = MISS;
+	}else{
+		response.field_state = HIT;
+	}
+	
+	if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
+		error("send_start_game --> send()");	
+
+}
 
 
 
