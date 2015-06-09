@@ -30,7 +30,7 @@ void send_opponent_to_player(game_t *game, client_t client);
 void send_to_opponent(request_t request);
 void send_to_opponent_win(request_t request);
 void save_player_history(request_t request);
-void send_start_game(game_t game);
+void send_start_game(game_t *game);
 
 
 int port;
@@ -118,7 +118,11 @@ void* server_thread_function(void* tmp_client) {
 			case CHECK_HISTORY:
 				printf("Checking history of: %s\n",client.name);
 				pthread_mutex_lock(&history_mutex);
+				pthread_mutex_lock(&client_list_mutex);
+				pthread_mutex_lock(&send_to_opponent_mutex);
 				check_and_send_history(client);
+				pthread_mutex_unlock(&send_to_opponent_mutex);
+				pthread_mutex_unlock(&client_list_mutex);
 				pthread_mutex_unlock(&history_mutex);
 				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
@@ -154,6 +158,7 @@ void* server_thread_function(void* tmp_client) {
 			default:
 				printf("Request received but not recognized: %d\n", request.action);
 			}
+		break;
 		case GAME:
 			switch(request.action){
 			case FIELD:
@@ -201,12 +206,13 @@ void* server_thread_function(void* tmp_client) {
 				}
 			break;
 			case PLAYER_READY:
-				if(game->player_1.socket = client.socket){
-					game.ready_player_1 = TRUE;
+				
+				if(game->player_1->socket = client.socket){
+					game->ready_player_1 = TRUE;
 				}else{
-					game.ready_player_2 = TRUE;
+					game->ready_player_2 = TRUE;
 				}
-				if(game.ready_player_1 == TRUE && game.ready_player_2 == TRUE){
+				if(game->ready_player_1 == TRUE && game->ready_player_2 == TRUE){
 					pthread_mutex_lock(&send_to_opponent_mutex);
 					send_start_game(game);
 					pthread_mutex_unlock(&send_to_opponent_mutex);
@@ -215,9 +221,8 @@ void* server_thread_function(void* tmp_client) {
 			default:
 				printf("Request received but not recognized: %d\n", request.action);
 			}
-			break;
-		
-		
+		break;
+
 		default:
 			printf("Request received but not recognized: %d\n", request.lobby);
 		
@@ -304,7 +309,7 @@ void init_server(){
 	if(listen(inet_socket, 10) == -1)
 		error("listen(inet)");
 
-	if(mkdir("history",0777) != 0 && errno != EEXIST)
+	if(mkdir(history,0777) != 0 && errno != EEXIST)
 		error("mkdir(history)");
 }
 
@@ -363,23 +368,63 @@ void unregister_client(client_t* client){
 
 
 
-void check_and_send_history(client_t client){}
+void check_and_send_history(client_t client){
+	
+	
+	char file_name[100];
+	char msg[HISTORY_LENGHT], *result;
+
+	FILE *plik;
+	request_t response;
+	response.lobby = GAME;
+	response.action = HISTORY;
+	strcpy(file_name,history);
+	strcat(file_name,"/");
+	strcat(file_name,client.name);
+	plik = fopen(file_name,"r");
+	if(plik == NULL){
+		strcpy(response.msg, "You don't have any history\n");
+	
+		if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
+			error("check_and_send_hisotry --> send()");
+		
+	}else{
+
+		while(TRUE){
+		
+			result = fgets(msg,HISTORY_LENGHT,plik);
+			if(result!= NULL){
+
+				strcpy(response.msg,msg);
+				if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
+					error("check_and_send_hisotry --> send()");
+				if(feof(plik) != 0 ) break;
+			}	
+		}
+		strcpy(response.msg,END_HISTORY);
+		if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
+					error("check_and_send_hisotry --> send()");
+		fclose(plik);
+	}
+
+}
 void send_opponent_to_player(game_t *game, client_t client){
 	
 	request_t response;
 	response.lobby=GAME;
 	response.action=SERVER_INFO;
 	response.server_info = OPPONENT;
-	if(game->player_1.socket == client.socket){
-		response.opponent_socket = game->player_2.socket;
+	if(game->player_1->socket == client.socket){
+		response.opponent_socket = game->player_2->socket;
 	}else{
-		response.opponent_socket = game->player_1.socket;
+		response.opponent_socket = game->player_1->socket;
 	}
-	if(send(client.socket,(void*) response, sizeof(response),0)==-1)
+	if(send(client.socket,(void*) &response, sizeof(response),0)==-1)
 		error("send_opponent_to_player --> send()");
 }	
 void send_to_opponent(request_t request){
-	if(send(request.opponent_socket,(void*) request, sizeof(request),0) == -1)
+	int socket = request.opponent_socket;
+	if(send(socket,(void*) &request, sizeof(request),0) == -1)
 		error("send_to_opponent --> send()");
 }
 void send_to_opponent_win(request_t request){
@@ -387,7 +432,7 @@ void send_to_opponent_win(request_t request){
 	response.lobby = GAME;
 	response.action = GAME_STATE;
 	response.game_state = WIN;
-	if(send(request.opponent_socket,(void*) response, sizeof(response),0) == -1)
+	if(send(request.opponent_socket,(void*) &response, sizeof(response),0) == -1)
 		error("send_to_opponent_win --> send()");
 }
 void save_player_history(request_t request){
@@ -395,9 +440,9 @@ void save_player_history(request_t request){
 
 	FILE * pFILE;
 	time_t rawtime;
-	char* result[14];
+	char result[14];
 	struct tm* timeinfo;
-	char* file_name[100];
+	char file_name[100];
 	strcpy(file_name,history);
 	strcat(file_name,"/");
 	strcat(file_name,request.name);
@@ -406,9 +451,9 @@ void save_player_history(request_t request){
 	
 	time(&rawtime);
 	timeinfo = localtime(&rawtime);
-	fprintf(pFILE, asctime(timeinfo));
+	fprintf(pFILE,"%s", asctime(timeinfo));
 	fprintf(pFILE,":");
-	switch(request.game_status){
+	switch(request.game_state){
 	case WIN:
 		strcpy(result,"WIN");
 		break;
@@ -419,13 +464,14 @@ void save_player_history(request_t request){
 		strcpy(result,"DISCONNECT");
 		break;
 	default:
-		
+		error("Save_player_history -->switch()");
 	}
-	fprintf(pFILE,result);
+	fprintf(pFILE,"%s",result);
 	fprintf(pFILE,"\n");
+	fclose(pFILE);
 
 }
-
+void send_start_game(game_t *game){}
 
 
 
