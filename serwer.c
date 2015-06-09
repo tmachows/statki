@@ -126,13 +126,15 @@ void* server_thread_function(void* tmp_client) {
 				pthread_mutex_unlock(&history_mutex);
 				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
-			case START_GAME:
+						case START_GAME:
 				printf("Starting game for player: %s\n",client.name);
 				pthread_mutex_lock(&waiting_player_mutex);
 				game_t* tmp  = head_game;
 				printf("Looking for game\n");
 				while(tmp != NULL){
+					printf("dupa");
 					if(tmp->player_2 == NULL){
+							
 						tmp->player_2  = &client;
 						game = tmp;
 						pthread_cond_signal(&waiting_cond);
@@ -142,8 +144,11 @@ void* server_thread_function(void* tmp_client) {
 					tmp = tmp->next;
 				}
 				if(tmp == NULL){ // There's no waiting players;
+					printf("kupa");
 					game = (game_t*) malloc(sizeof(game_t));
 					game->player_1 = &client;
+					game->next = head_game;
+					head_game = game;
 					while(game->player_2 == NULL) pthread_cond_wait(&waiting_cond, &waiting_player_mutex);
 					pthread_mutex_unlock(&waiting_player_mutex);
 					
