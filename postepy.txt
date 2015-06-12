@@ -45,6 +45,9 @@ Przy rozpoczynaniu pisania czegoś:
 	
 -- MJ -- 06-06-2015 -- w miare ZROBIONE
 	game function nie testowane (balem sie) kompilacja w std=c99 
+
+-- TM -- 12-06-2015 -- BĘDZIE ROBIONE
+	Debugowanie, doprowadzanie do działania
 	
 				
 	
