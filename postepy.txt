@@ -48,6 +48,12 @@ Przy rozpoczynaniu pisania czegoś:
 
 -- TM -- 12-06-2015 -- BĘDZIE ROBIONE
 	Debugowanie, doprowadzanie do działania
+
+-- TM -- 13-06-2015 -- ZROBIONE
+	Już w zasadzie działa, choć niezbyt stabilnie. Udało mi się przeprowadzić kilka gier,
+	ale nie do końca ogarniam dlaczego przegrany nie wraca do menu tylko się przywiesza.
+	Jak możecie to potestujcie jak to u was wygląda.
+	Dorzucam Makefile.
 	
 				
 	

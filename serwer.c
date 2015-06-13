@@ -30,7 +30,7 @@ void send_opponent_to_player(game_t *game, client_t client);
 void send_to_opponent(request_t request);
 void send_to_opponent_win(request_t request);
 void save_player_history(request_t request);
-void send_start_game(game_t *game,client_t client);
+void send_start_game(game_t *game,client_t* client);
 
 
 int port;
@@ -99,7 +99,7 @@ void* server_thread_function(void* tmp_client) {
 		case MENU:
 			switch(request.action){
 			case ADD_USER:
-				printf("Registering client ");
+				printf("Registering client %s", request.name);
 				strcpy(client.name, request.name);
 				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 				pthread_mutex_unlock(&client_list_mutex);
@@ -205,6 +205,7 @@ void* server_thread_function(void* tmp_client) {
 				}else{
 					printf("Player %s end game\n",client.name);
 					pthread_mutex_lock(&history_mutex);
+					send_to_opponent_win(request);
 					save_player_history(request);
 					pthread_mutex_unlock(&history_mutex);
 					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
@@ -219,7 +220,8 @@ void* server_thread_function(void* tmp_client) {
 				}
 				if(game->ready_player_1 == TRUE && game->ready_player_2 == TRUE){
 					pthread_mutex_lock(&send_to_opponent_mutex);
-					send_start_game(game,client);
+					send_start_game(game,game->player_1);
+					send_start_game(game,game->player_2);
 					pthread_mutex_unlock(&send_to_opponent_mutex);
 				}
 			break;
@@ -381,7 +383,7 @@ void check_and_send_history(client_t client){
 
 	FILE *plik;
 	request_t response;
-	response.lobby = GAME;
+	response.lobby = MENU;
 	response.action = HISTORY;
 	strcpy(file_name,history);
 	strcat(file_name,"/");
@@ -406,11 +408,12 @@ void check_and_send_history(client_t client){
 				if(feof(plik) != 0 ) break;
 			}	
 		}
-		strcpy(response.msg,END_HISTORY);
-		if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
-					error("check_and_send_hisotry --> send()");
+		
 		fclose(plik);
 	}
+	strcpy(response.msg,END_HISTORY);
+	if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
+					error("check_and_send_hisotry --> send()");
 
 }
 void send_opponent_to_player(game_t *game, client_t client){
@@ -437,6 +440,7 @@ void send_to_opponent_win(request_t request){
 	response.lobby = GAME;
 	response.action = GAME_STATE;
 	response.game_state = WIN;
+	printf("Sending win message\n");
 	if(send(request.opponent_socket,(void*) &response, sizeof(response),0) == -1)
 		error("send_to_opponent_win --> send()");
 }
@@ -476,20 +480,19 @@ void save_player_history(request_t request){
 	fclose(pFILE);
 
 }
-void send_start_game(game_t *game,client_t client){
+void send_start_game(game_t *game,client_t* client){
 	
 	request_t response;
 	response.lobby=GAME;
 	response.action=START_GAME;
-	if(client.socket == game->player_1->socket){
+	if(client->socket == game->player_1->socket){
 		response.field_state = MISS;
 	}else{
 		response.field_state = HIT;
 	}
 	
-	if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
-		error("send_start_game --> send()");	
-
+	if(send(client->socket,(void*) &response, sizeof(response),0) == -1)
+		error("send_start_game --> send()");
 }
 
 
