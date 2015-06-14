@@ -55,7 +55,8 @@ Przy rozpoczynaniu pisania czegoś:
 	Jak możecie to potestujcie jak to u was wygląda.
 	Dorzucam Makefile.
 	
-				
+-- MJ -- 06-06-2015 -- ZROBIONE
+	droble poprawki i debug teraz sie nie wiesza oraz make
 	
 	
 	
