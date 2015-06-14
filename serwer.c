@@ -202,6 +202,12 @@ void* server_thread_function(void* tmp_client) {
 					if(pthread_cancel(client.thread) == -1)
 						error("server_thread_function() --> pthread_cancel()");
 					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
+				}else if(request.game_state == WIN){
+					printf("Player %s end game\n",client.name);
+					pthread_mutex_lock(&history_mutex);
+					save_player_history(request);
+					pthread_mutex_unlock(&history_mutex);
+					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 				}else{
 					printf("Player %s end game\n",client.name);
 					pthread_mutex_lock(&history_mutex);
@@ -406,6 +412,8 @@ void check_and_send_history(client_t client){
 				if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
 					error("check_and_send_hisotry --> send()");
 				if(feof(plik) != 0 ) break;
+			}else {
+				break;
 			}	
 		}
 		
