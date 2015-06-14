@@ -26,4 +26,5 @@ $(EXECUTABLE-NAME-3):
 clean:
 	rm -f $(EXECUTABLE-NAME-1)
 	rm -f $(EXECUTABLE-NAME-2)
+	rm -f $(EXECUTABLE-NAME-3)
 
