@@ -18,6 +18,7 @@ struct field_struct{
 	int enymy_fields [10][10];
 };
 
+#ifdef DEBUG
 int debug_fields[10][10] = { {1, 1, 1, 1, 0, 0, 0, 0, 0, 0}, 
 							{0, 0, 0, 0, 0, 1, 1, 0, 0, 0},
 							{1, 1, 1, 0, 0, 0, 0, 0, 0, 0},
@@ -28,7 +29,7 @@ int debug_fields[10][10] = { {1, 1, 1, 1, 0, 0, 0, 0, 0, 0},
 							{0, 0, 0, 0, 0, 1, 0, 0, 0, 0},
 							{1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
 							{0, 0, 0, 0, 0, 1, 0, 0, 0, 0} };
-
+#endif
 
 typedef struct field_struct fields_t;
 void print_bord();
@@ -153,6 +154,15 @@ int main(int argc, char *argv[])
 				case GAME_STATE:
 					if(response.game_state == WIN){
 						printf("YOU WIN !!!!!!!!!!!!!!!!\n");
+						request_t response;
+						strcpy(response.name,client_name);
+						response.lobby = GAME;
+						response.action = GAME_STATE;
+						response.game_state=WIN;
+						pthread_mutex_lock(&mutex);
+						if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+								error("send() game");
+						pthread_mutex_unlock(&mutex);
 						pthread_mutex_lock(&game_mutex);
 						game_state=0;
 						pthread_cond_signal(&waiting_cond);
@@ -414,14 +424,16 @@ void init_fields(){
 		field.enymy_fields[i/10][i%10]=0;
 	}
 	char bufor[2];
-
+	
+	#ifdef DEBUG
 	for(int i=0;i<10;i++){
 		for(int j=0; j<10; j++)
 			field.my_fields[i][j] = debug_fields[i][j];
 	}
 	print_bord();
+	#endif
 	
-	/*
+	#ifndef DEBUG
 	print_bord();
 	for(int i=1;i<5;i++){
 		for(int j=0;j<i;j++){	
@@ -457,7 +469,7 @@ void init_fields(){
 		}
 		
 	}
-	*/
+	#endif
 
 	request_t response;
 	strcpy(response.name,client_name);
