@@ -10,7 +10,7 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
-
+#include <string.h>
 #include "config.h"
 
 void* server_thread_function(void* arg);
@@ -19,7 +19,6 @@ void exit_handler(int signo);
 int clients_count();
 void atexit_function();
 int get_client_number(client_t* client);
-// Gawel
 void check_enter(int argc, char** argv);
 void init_server();
 void listen_function();
@@ -31,7 +30,7 @@ void send_to_opponent(request_t request);
 void send_to_opponent_win(request_t request);
 void save_player_history(request_t request);
 void send_start_game(game_t *game,client_t* client);
-
+void send_to_me_die(client_t client);
 
 int port;
 char* path;
@@ -187,7 +186,9 @@ void* server_thread_function(void* tmp_client) {
 					send_to_opponent_win(request);
 					pthread_mutex_unlock(&send_to_opponent_mutex);
 					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
-
+					pthread_mutex_lock(&send_to_opponent_mutex);
+					send_to_me_die(client);
+					pthread_mutex_unlock(&send_to_opponent_mutex);
 					printf("Saving history to player %s\n",client.name);
 					pthread_mutex_lock(&history_mutex);
 					save_player_history(request);
@@ -423,6 +424,17 @@ void check_and_send_history(client_t client){
 	if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
 					error("check_and_send_hisotry --> send()");
 
+}
+
+
+void send_to_me_die(client_t client){
+	request_t response;
+	response.lobby = GAME;
+	response.action = GAME_STATE;
+	response.game_state=DISCON;
+	if(send(client.socket,(void*) &response, sizeof(response),0) == -1)
+					error("DISCON --> send()");
+	
 }
 void send_opponent_to_player(game_t *game, client_t client){
 	
