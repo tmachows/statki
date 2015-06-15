@@ -168,6 +168,9 @@ int main(int argc, char *argv[])
 						pthread_cond_signal(&waiting_cond);
 						pthread_mutex_unlock(&game_mutex);
 					}
+					else if(response.game_state == DISCON){
+						exit(EXIT_SUCCESS);
+					}
 				break;
 		
 				case SERVER_INFO:
@@ -278,6 +281,8 @@ void parse_arguments(int argc, char *argv[]) {
 }
 
 void* thread_function(void* arg) {
+	if(signal(SIGTSTP, exit_handler) == SIG_ERR)
+		error("signal()");
 	request_t response;
 	strcpy(response.name,client_name);
 	response.lobby = MENU;
@@ -360,7 +365,7 @@ void game_function(){
 	int x,y;
 	while(!my_turn)
 		pthread_cond_wait(&waiting_cond, &game_mutex);
-	while(game_state==1){
+	while(game_state==1&&thread_is_alive==1){
 			printf("podaj pole do zaatakowania \n");
 			do{					
 				scanf("%s",bufor);	
@@ -488,7 +493,7 @@ void print_bord(){
 	char c='A',b;
 	printf("\E[H\E[2J"); //clear
 	printf("\t\t moje statki \t\t\t\t\tstatki preciwnika\n");
-	printf("\t  0 1 2 3 4 5 6 7 8 9 \t\t  0 1 2 3 4 5 6 7 8 9\n");
+	printf("\t  0 1 2 3 4 5 6 7 8 9 \t\t\t\t  0 1 2 3 4 5 6 7 8 9\n");
 	for(int i=0;i<10;i++){
 		printf("\t%c ",c+i);
 			for(int j=0;j<10;j++){
@@ -502,7 +507,7 @@ void print_bord(){
 					b=' ';
 				printf("%c ",b);
 			}
-		printf("\t\t%c ",c+i);
+		printf("\t\t\t\t%c ",c+i);
 			for(int j=0;j<10;j++){
 				if(field.enymy_fields[i][j]==3)
 					b='@';	
@@ -716,13 +721,29 @@ void error(const char *fun_name){
 }
 
 void exit_handler(int signo) {
-	if(signo == SIGTSTP)
-		exit(EXIT_SUCCESS);
+	if(signo == SIGTSTP){
+	request_t response;
+	strcpy(response.name,client_name);
+	response.lobby = GAME;
+	response.action = GAME_STATE;
+	response.game_state=DISCON;
+	response.opponent_socket=opponent_socket;	
+	
+	pthread_mutex_lock(&mutex);
+	if(game_state==1)
+		if(send(socket_fd, (void*) &response, sizeof(response), 0) == -1)
+				error("send() game");
+	pthread_mutex_unlock(&mutex);
+		
+	}
+	
+		
 }
 
 void atexit_function(){
+
 	thread_is_alive = 0;
-	if(thread != 0)
-		pthread_join(thread, NULL);
+	//if(thread != 0)
+	//	pthread_join(thread, NULL);
 	close(socket_fd);
 }
