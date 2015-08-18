@@ -12,10 +12,10 @@
 #include <string.h>
 #include "config.h"
 
-struct field_struct{
-
+struct field_struct
+{
 	int my_fields[10][10];
-	int enymy_fields [10][10];
+	int enemy_fields [10][10];
 };
 
 #ifdef DEBUG
@@ -32,7 +32,7 @@ int debug_fields[10][10] = { {1, 1, 1, 1, 0, 0, 0, 0, 0, 0},
 #endif
 
 typedef struct field_struct fields_t;
-void print_bord();
+void print_board();
 void init_fields();
 void parse_arguments(int argc, char *argv[]);
 void* thread_function(void* arg);
@@ -41,10 +41,10 @@ void exit_handler(int signo);
 void atexit_function();
 void init_client();
 void game_function();
-int pars_field(char *bufor,int *x,int *y);
+int parse_field(char *bufor,int *x,int *y);
 int check_field(int x,int y);
-int check_fields(int begin_x,int begin_y,int x,int y,int lenght);
-void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght);
+int check_fields(int begin_x,int begin_y,int x,int y,int length);
+void place_vessel(int begin_x,int begin_y,int x,int y,int length);
 void aim(int x,int y);
 int status();
 
@@ -54,19 +54,19 @@ int my_turn=0;
 int opponent_socket;
 fields_t field;
 int local_flag = 1;
-int enymy_ready=0;
+int enemy_ready=0;
 int server_port;
 int client_port;
-char server_path[CLIENT_NAME_LENGHT + 2];
+char server_path[CLIENT_NAME_LENGTH + 2];
 char* ip;
 int socket_fd;
 pthread_t thread;
 int thread_is_alive = 1;
-char msg[HISTORY_LENGHT];
+char msg[HISTORY_LENGTH];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t	waiting_cond	= PTHREAD_COND_INITIALIZER;
-char client_name[CLIENT_NAME_LENGHT];
+pthread_cond_t	waiting_cond = PTHREAD_COND_INITIALIZER;
+char client_name[CLIENT_NAME_LENGTH];
 
 
 int main(int argc, char *argv[])
@@ -75,14 +75,16 @@ int main(int argc, char *argv[])
 
 	if(signal(SIGTSTP, exit_handler) == SIG_ERR)
 		error("signal()");
+	if(signal(SIGINT, exit_handler) == SIG_ERR)
+		error("signal()");
 
 	printf("\nParsing arguments");
-	parse_arguments(argc, argv); //EDIT
+	parse_arguments(argc, argv);
 	printf("\t\t\t\t\033[32m[ OK ]\033[0m\n");
 	
 	printf("Client's name:\t%s\n", client_name);
 	init_client();
-	// Odpalanie watku pisarza
+	// Odpalanie watku gry
 	if(pthread_create(&thread, NULL, thread_function, NULL) == -1)
 		error("pthread_create()");
 
@@ -126,7 +128,7 @@ int main(int argc, char *argv[])
 		case GAME:
 			switch(response.action){
 				case FIELD:
-					printf("enymy aim Field %c %d: \n",'A'+response.field.y,response.field.x);
+					printf("Przeciwnik strzela w: %c %d\n",'A'+response.field.y,response.field.x);
 					pthread_mutex_lock(&game_mutex);
 					
 					aim(response.field.x,response.field.y);
@@ -137,23 +139,23 @@ int main(int argc, char *argv[])
 					if(response.field_state==MISS){
 						pthread_mutex_lock(&game_mutex);
 						my_turn=0;
-						field.enymy_fields[response.field.y][response.field.x]=3;
-						print_bord();
-						printf("you: miss\n");
+						field.enemy_fields[response.field.y][response.field.x]=3;
+						print_board();
+						printf("Pudlo! Kolej przeciwnika.\n");
 						pthread_mutex_unlock(&game_mutex);
 					}else{
 						pthread_mutex_lock(&game_mutex);
 						my_turn=1;
-						field.enymy_fields[response.field.y][response.field.x]=2;
-						print_bord();
-						printf("you: hit\n");
+						field.enemy_fields[response.field.y][response.field.x]=2;
+						print_board();
+						printf("Trafiles! Twoja kolej.\n");
 						pthread_cond_signal(&waiting_cond);
 						pthread_mutex_unlock(&game_mutex);	
 					}
 				break;
 				case GAME_STATE:
 					if(response.game_state == WIN){
-						printf("YOU WIN !!!!!!!!!!!!!!!!\n");
+						printf("BRAWO! WYGRALES!!!\n");
 						request_t response;
 						strcpy(response.name,client_name);
 						response.lobby = GAME;
@@ -176,7 +178,7 @@ int main(int argc, char *argv[])
 				case SERVER_INFO:
 					if(response.server_info==OPPONENT){
 						opponent_socket=response.opponent_socket;
-						printf("enymy found \033[32m[ OK ]\033[0m\n");
+						printf("enemy found \033[32m[ OK ]\033[0m\n");
 						pthread_mutex_lock(&game_mutex);
 						wait=1;
 						pthread_cond_signal(&waiting_cond);
@@ -185,9 +187,9 @@ int main(int argc, char *argv[])
 				break;
 				case START_GAME:
 					if(response.field_state==HIT){
-						printf("Starting game...\n");
+						printf("starting game...\n");
 						pthread_mutex_lock(&game_mutex);
-						enymy_ready=1;
+						enemy_ready=1;
 						my_turn = 1;
 						pthread_cond_signal(&waiting_cond);
 						pthread_mutex_unlock(&game_mutex);			
@@ -225,8 +227,8 @@ void aim(int x,int y){
 
 	if(field.my_fields[y][x]==1){
 		field.my_fields[y][x]=2;
-		print_bord();
-		printf("you get hit\n");
+		print_board();
+		printf("Zostalismy trafieni...\n");
 		game_state = status();
 		if(game_state == 0)
 			return;
@@ -236,9 +238,9 @@ void aim(int x,int y){
 	}else{
 		response.field_state=MISS;
 		field.my_fields[y][x]=3;
-		print_bord();
-		if(enymy_ready==0)
-			enymy_ready=1;
+		print_board();
+		if(enemy_ready==0)
+			enemy_ready=1;
 		my_turn=1;
 		pthread_cond_signal(&waiting_cond);
 	}
@@ -286,7 +288,6 @@ void* thread_function(void* arg) {
 	request_t response;
 	strcpy(response.name,client_name);
 	response.lobby = MENU;
-	char bufor[HISTORY_LENGHT];
 
 	printf("\n\n#################################################################\n");
 	printf("----------------- Witaj w grze sieciowej w statki! --------------\n");
@@ -357,19 +358,19 @@ void game_function(){
 	char bufor[2];
 	
 	pthread_mutex_lock(&game_mutex);
-	printf("ocekiwanie na gotowosc przeciwnika\n");
-	while(enymy_ready==0)
+	printf("Oczekiwanie na gotowosc przeciwnika..\n");
+	while(enemy_ready==0)
 		pthread_cond_wait(&waiting_cond, &game_mutex);
 	pthread_mutex_unlock(&game_mutex);
-	printf("przeciwnik gotowy gry rozpoczyna sie\n");
+	printf("Przeciwnik gotowy - gra rozpoczyna sie!\n");
 	int x,y;
 	while(!my_turn)
 		pthread_cond_wait(&waiting_cond, &game_mutex);
 	while(game_state==1&&thread_is_alive==1){
-			printf("podaj pole do zaatakowania \n");
+			printf("Podaj pole do zaatakowania: ");
 			do{					
 				scanf("%s",bufor);	
-			}while(pars_field(bufor,&x,&y)==0);
+			}while(parse_field(bufor,&x,&y)==0);
 			request_t response;
 			strcpy(response.name,client_name);
 			response.lobby = GAME;
@@ -423,29 +424,30 @@ int status(){
 
 
 void init_fields(){
-	int x,y,begin_x,begin_y;
+	
 	for(int i=0;i<100;i++){
 		field.my_fields[i/10][i%10]=0;
-		field.enymy_fields[i/10][i%10]=0;
+		field.enemy_fields[i/10][i%10]=0;
 	}
-	char bufor[2];
 	
 	#ifdef DEBUG
 	for(int i=0;i<10;i++){
 		for(int j=0; j<10; j++)
 			field.my_fields[i][j] = debug_fields[i][j];
 	}
-	print_bord();
+	print_board();
 	#endif
 	
 	#ifndef DEBUG
-	print_bord();
+	int x,y,begin_x,begin_y;
+	char bufor[2];
+	print_board();
 	for(int i=1;i<5;i++){
 		for(int j=0;j<i;j++){	
-			printf("prosze podac poczatek statku nr:%d  o dl %d\n",j+1,5-i);		
+			printf("Podaj poczatek statku nr:%d o dlugosci %d: ",j+1,5-i);		
 			do{		
 				scanf("%s",bufor);	
-				if(pars_field(bufor,&x,&y)!=0){
+				if(parse_field(bufor,&x,&y)!=0){
 					if(check_field(y, x)!=0)
 						break;
 				}
@@ -455,12 +457,12 @@ void init_fields(){
 
 			begin_x=x;
 			begin_y=y;
-			printf("prosze podac koniec statku nr:%d  o dl %d\n",j+1,5-i);		
+			printf("Podaj koniec statku nr:%d o dlugosci %d: ",j+1,5-i);		
 			if(5-i!=1){	
 				do{		
 					scanf("%s",bufor);	
 					
-					if(pars_field(bufor,&x,&y)!=0){
+					if(parse_field(bufor,&x,&y)!=0){
 						if(check_field(y, x)!=0){
 							if(check_fields(begin_x,begin_y,x,y,5-i)!=0)
 								break;
@@ -469,8 +471,8 @@ void init_fields(){
 					}	
 				}while(1);
 			}
-			place_vaessel(begin_x,begin_y,x,y,5-i);
-			print_bord();
+			place_vessel(begin_x,begin_y,x,y,5-i);
+			print_board();
 		}
 		
 	}
@@ -489,11 +491,11 @@ void init_fields(){
 
 }
 
-void print_bord(){
+void print_board(){
 	char c='A',b;
 	printf("\E[H\E[2J"); //clear
-	printf("\t\t moje statki \t\t\t\t\tstatki preciwnika\n");
-	printf("\t  0 1 2 3 4 5 6 7 8 9 \t\t\t\t  0 1 2 3 4 5 6 7 8 9\n");
+	printf("\t moje statki \t\t\t\tstatki przeciwnika\n");
+	printf("\t  0 1 2 3 4 5 6 7 8 9 \t\t\t  0 1 2 3 4 5 6 7 8 9\n");
 	for(int i=0;i<10;i++){
 		printf("\t%c ",c+i);
 			for(int j=0;j<10;j++){
@@ -507,15 +509,15 @@ void print_bord(){
 					b=' ';
 				printf("%c ",b);
 			}
-		printf("\t\t\t\t%c ",c+i);
+		printf("\t\t\t%c ",c+i);
 			for(int j=0;j<10;j++){
-				if(field.enymy_fields[i][j]==3)
+				if(field.enemy_fields[i][j]==3)
 					b='@';	
-				if(field.enymy_fields[i][j]==2)
+				if(field.enemy_fields[i][j]==2)
 					b='X';	
-				if(field.enymy_fields[i][j]==1)
+				if(field.enemy_fields[i][j]==1)
 					b='O';
-				if(field.enymy_fields[i][j]==0)
+				if(field.enemy_fields[i][j]==0)
 					b=' ';
 				printf("%c ",b);
 			}
@@ -524,7 +526,7 @@ void print_bord(){
 	
 }
 
-void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght){
+void place_vessel(int begin_x,int begin_y,int x,int y,int length){
 	int z=0;
 	if(begin_x!=x){
 		z=x-begin_x;
@@ -532,7 +534,7 @@ void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght){
 			z=1;
 		else 
 			z=-1;
-		for(int i=0;i<lenght;i++){
+		for(int i=0;i<length;i++){
 			field.my_fields[begin_y][begin_x+i*z]=1;
 		}
 	}else {
@@ -541,7 +543,7 @@ void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght){
 			z=1;
 		else 
 			z=-1;
-		for(int i=0;i<lenght;i++){
+		for(int i=0;i<length;i++){
 			field.my_fields[begin_y+i*z][begin_x]=1;
 		}
 
@@ -552,7 +554,7 @@ void place_vaessel(int begin_x,int begin_y,int x,int y,int lenght){
 
 
 
-int check_fields(int begin_x,int begin_y,int x,int y,int lenght){
+int check_fields(int begin_x,int begin_y,int x,int y,int length){
 	int i=0;
 	if(begin_x!=x&&begin_y==y)
 		i=abs(begin_x-x)+1;
@@ -560,15 +562,15 @@ int check_fields(int begin_x,int begin_y,int x,int y,int lenght){
 		i=abs(begin_y-y)+1;
 	}
 	else{
-		printf("podaj inne pole  tak by statek nie zginal sie\n");
+		printf("Podaj inne pole tak, by statek nie zginal sie.\n");
 		return 0;
 	}
 	
 	if(i==0){
-		printf("podaj pole inne niż początek\n");
+		printf("Podaj pole inne niz poczatek.\n");
 		return 0;
-	}else if(i!=lenght){
-		printf("podaj inne pole  tak by statek miał dł %d\n",lenght);
+	}else if(i!=length){
+		printf("Podaj inne pole tak by statek mial dlugosc %d.\n",length);
 		return 0;
 	}else{
 		return 1;
@@ -619,13 +621,13 @@ int check_field(int x,int y){
 		
 		}	
 	}
-	printf("pole jest zajete");	
+	printf("Pole jest zajete.\n");	
 	return 0;
 };
-int pars_field(char *bufor,int *x,int *y){
+int parse_field(char *bufor,int *x,int *y){
 		*x=bufor[1]-48;
 		if(!(*x<10&&*x>=0)){
-			printf("blendne pole podaj od A0 do J9");
+			printf("Bledne pole - podaj od A0 do J9.\n");
 			return 0;
 		}
 		
@@ -650,7 +652,7 @@ int pars_field(char *bufor,int *x,int *y){
 		}else if(strstr(bufor,"J")!=NULL){
 			*y=9;
 		}else{
-			printf("blendne pole podaj od A0 do J9");
+			printf("Bledne pole - podaj od A0 do J9.\n");
 			return 0;
 		}
 	return 1;

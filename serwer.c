@@ -65,14 +65,15 @@ int main(int argc, char **argv)
 	exit(EXIT_SUCCESS);
 }
 
-void* server_thread_function(void* tmp_client) {
+void* server_thread_function(void* tmp_client) 
+{
 	printf("\nNew thread created\n");
 	client_t client;
 	client.socket = ((client_t*) tmp_client)->socket;
 	client.thread = ((client_t*) tmp_client)->thread;
 
 	if(clients_count() >= MAX_CLIENTS) {
-		printf("Too much clients canceling thread\n");
+		printf("Too much clients, cancelling thread\n");
 		pthread_mutex_unlock(&client_list_mutex);
 		if(pthread_cancel(client.thread) == -1)
 			error("server_thread_function() --> pthread_cancel()");
@@ -125,15 +126,13 @@ void* server_thread_function(void* tmp_client) {
 				pthread_mutex_unlock(&history_mutex);
 				printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 			break;
-						case START_GAME:
+			case START_GAME:
 				printf("Starting game for player: %s\n",client.name);
 				pthread_mutex_lock(&waiting_player_mutex);
 				game_t* tmp  = head_game;
 				printf("Looking for game\n");
 				while(tmp != NULL){
-					printf("dupa");
-					if(tmp->player_2 == NULL){
-							
+					if(tmp->player_2 == NULL){	
 						tmp->player_2  = &client;
 						game = tmp;
 						pthread_cond_signal(&waiting_cond);
@@ -143,7 +142,6 @@ void* server_thread_function(void* tmp_client) {
 					tmp = tmp->next;
 				}
 				if(tmp == NULL){ // There's no waiting players;
-					printf("kupa");
 					game = (game_t*) malloc(sizeof(game_t));
 					game->player_1 = &client;
 					game->next = head_game;
@@ -189,7 +187,7 @@ void* server_thread_function(void* tmp_client) {
 					pthread_mutex_lock(&send_to_opponent_mutex);
 					send_to_me_die(client);
 					pthread_mutex_unlock(&send_to_opponent_mutex);
-					printf("Saving history to player %s\n",client.name);
+					printf("Saving history for player %s\n",client.name);
 					pthread_mutex_lock(&history_mutex);
 					save_player_history(request);
 					pthread_mutex_unlock(&history_mutex);
@@ -204,13 +202,13 @@ void* server_thread_function(void* tmp_client) {
 						error("server_thread_function() --> pthread_cancel()");
 					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 				}else if(request.game_state == WIN){
-					printf("Player %s end game\n",client.name);
+					printf("Player %s ends game\n",client.name);
 					pthread_mutex_lock(&history_mutex);
 					save_player_history(request);
 					pthread_mutex_unlock(&history_mutex);
 					printf("\t\t\t\t\t\033[32m[ OK ]\033[0m\n");
 				}else{
-					printf("Player %s end game\n",client.name);
+					printf("Player %s ends game\n",client.name);
 					pthread_mutex_lock(&history_mutex);
 					send_to_opponent_win(request);
 					save_player_history(request);
@@ -246,7 +244,8 @@ void* server_thread_function(void* tmp_client) {
 	exit(EXIT_SUCCESS);
 }
 
-int get_client_number(client_t* client) {
+int get_client_number(client_t* client) 
+{
 	client_t* tmp = head_client;
 	int i = 0;
 	while(tmp != client && tmp != NULL) {
@@ -257,7 +256,8 @@ int get_client_number(client_t* client) {
 	return (tmp == NULL) ? -1 : i;
 }
 
-int clients_count() {
+int clients_count() 
+{
 	int result = 0;
 
 		client_t* tmp = head_client;
@@ -270,7 +270,8 @@ int clients_count() {
 }
 
 
-void check_enter(int argc, char** argv){
+void check_enter(int argc, char** argv)
+{
 	if(argc != 3) {
 		printf("\nInvalid arguments! Usage:\n\t%s\t<port> <path>\n\n", argv[0]);
 		exit(EXIT_FAILURE);
@@ -281,9 +282,12 @@ void check_enter(int argc, char** argv){
 
 	if(signal(SIGTSTP, exit_handler) == SIG_ERR)
 		error("signal()");
+	if(signal(SIGINT, exit_handler) == SIG_ERR)
+		error("signal()");
 }
 
-void init_server(){
+void init_server()
+{
 
 	printf("\nCreating server socket for local communication");
 	if((unix_socket = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0)) == -1)
@@ -327,8 +331,9 @@ void init_server(){
 		error("mkdir(history)");
 }
 
-void listen_function(){
-printf("Waiting for clients\n");
+void listen_function() 
+{
+	printf("Waiting for clients\n");
 	client_t tmp_client;
 	while(1) {
 		pthread_mutex_lock(&client_list_mutex);
@@ -359,7 +364,8 @@ printf("Waiting for clients\n");
 
 
 
-void unregister_client(client_t* client){
+void unregister_client(client_t* client) 
+{
 		client_t *tmp  = head_client;
 		while(tmp!=NULL){
 			printf("%d:%s",tmp->socket,tmp->name);
@@ -382,11 +388,10 @@ void unregister_client(client_t* client){
 
 
 
-void check_and_send_history(client_t client){
-	
-	
+void check_and_send_history(client_t client)
+{
 	char file_name[100];
-	char msg[HISTORY_LENGHT], *result;
+	char msg[HISTORY_LENGTH], *result;
 
 	FILE *plik;
 	request_t response;
@@ -406,7 +411,7 @@ void check_and_send_history(client_t client){
 
 		while(TRUE){
 		
-			result = fgets(msg,HISTORY_LENGHT,plik);
+			result = fgets(msg,HISTORY_LENGTH,plik);
 			if(result!= NULL){
 
 				strcpy(response.msg,msg);
@@ -427,7 +432,8 @@ void check_and_send_history(client_t client){
 }
 
 
-void send_to_me_die(client_t client){
+void send_to_me_die(client_t client)
+{
 	request_t response;
 	response.lobby = GAME;
 	response.action = GAME_STATE;
@@ -436,8 +442,8 @@ void send_to_me_die(client_t client){
 					error("DISCON --> send()");
 	
 }
-void send_opponent_to_player(game_t *game, client_t client){
-	
+void send_opponent_to_player(game_t *game, client_t client)
+{	
 	request_t response;
 	response.lobby=GAME;
 	response.action=SERVER_INFO;
@@ -450,12 +456,14 @@ void send_opponent_to_player(game_t *game, client_t client){
 	if(send(client.socket,(void*) &response, sizeof(response),0)==-1)
 		error("send_opponent_to_player --> send()");
 }	
-void send_to_opponent(request_t request){
+void send_to_opponent(request_t request)
+{
 	int socket = request.opponent_socket;
 	if(send(socket,(void*) &request, sizeof(request),0) == -1)
 		error("send_to_opponent --> send()");
 }
-void send_to_opponent_win(request_t request){
+void send_to_opponent_win(request_t request)
+{
 	request_t response;
 	response.lobby = GAME;
 	response.action = GAME_STATE;
@@ -464,9 +472,8 @@ void send_to_opponent_win(request_t request){
 	if(send(request.opponent_socket,(void*) &response, sizeof(response),0) == -1)
 		error("send_to_opponent_win --> send()");
 }
-void save_player_history(request_t request){
-	
-
+void save_player_history(request_t request)
+{
 	FILE * pFILE;
 	time_t rawtime;
 	char result[14];
@@ -498,10 +505,10 @@ void save_player_history(request_t request){
 	fprintf(pFILE,"%s",result);
 	fprintf(pFILE,"\n");
 	fclose(pFILE);
-
 }
-void send_start_game(game_t *game,client_t* client){
-	
+
+void send_start_game(game_t *game,client_t* client)
+{	
 	request_t response;
 	response.lobby=GAME;
 	response.action=START_GAME;
@@ -518,9 +525,8 @@ void send_start_game(game_t *game,client_t* client){
 
 
 
-
-
-void error(const char *fun_name){
+void error(const char *fun_name)
+{
 	char info[20];
 	int tmp_errno = errno;
 	sprintf(info, "error %d in function %s", tmp_errno, fun_name);
@@ -529,12 +535,14 @@ void error(const char *fun_name){
 	exit(EXIT_FAILURE);
 }
 
-void exit_handler(int signo) {
+void exit_handler(int signo) 
+{
 	if(signo == SIGTSTP)
 		exit(EXIT_SUCCESS);
 }
 
-void atexit_function(){
+void atexit_function()
+{
 	//int i;
 	/*for(i=0;i<client_counter;i++){
 		shutdown(clients[i],SHUT_RDWR);

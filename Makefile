@@ -1,30 +1,18 @@
-CC = gcc
-CFLAG=  -Wall  -std=c99
+CC= gcc
+CFLAGS= -Wall -std=c99
+LIBS= -lpthread
+FILES= serwer klient klient-d
 
-NAME-EXERCISE-1 = server.c
-NAME-EXERCISE-2 = klient.c
+all: $(FILES)
 
-EXECUTABLE-NAME-1 = server
-EXECUTABLE-NAME-2 = client
-EXECUTABLE-NAME-3 = client-D
-
-all: $(EXECUTABLE-NAME-1) $(EXECUTABLE-NAME-2)
-
-$(EXECUTABLE-NAME-1):
-	$(CC) $(CFLAG) -o $(EXECUTABLE-NAME-1) $(NAME-EXERCISE-1) -lpthread	
-
-$(EXECUTABLE-NAME-2):
-	$(CC) $(CFLAG)  -o $(EXECUTABLE-NAME-2) $(NAME-EXERCISE-2) -lpthread	
+%: %.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 
-debug: $(EXECUTABLE-NAME-1) $(EXECUTABLE-NAME-3)
-$(EXECUTABLE-NAME-3):
-	$(CC) $(CFLAG) -D DEBUG -o $(EXECUTABLE-NAME-3) $(NAME-EXERCISE-2) -lpthread
+klient-d: klient.c
+	$(CC) $(CFLAGS) -D DEBUG -o $@ $^ $(LIBS)
 
-.PHONY: clean run
+.PHONY: all clean
 
 clean:
-	rm -f $(EXECUTABLE-NAME-1)
-	rm -f $(EXECUTABLE-NAME-2)
-	rm -f $(EXECUTABLE-NAME-3)
-
+	rm -f $(FILES) *~
